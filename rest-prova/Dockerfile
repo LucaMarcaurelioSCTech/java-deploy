@@ -1,6 +1,5 @@
 # 1. Parti da una base con Java già installato (es. Java 17)
-FROM openjdk:21
-
+FROM eclipse-temurin:21-jdk-alpine
 # 2. Crea una cartella di lavoro dentro il container
 WORKDIR /app
 
