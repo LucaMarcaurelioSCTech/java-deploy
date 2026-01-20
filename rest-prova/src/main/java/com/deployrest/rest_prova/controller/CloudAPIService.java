@@ -1,5 +1,6 @@
 package com.deployrest.rest_prova.controller;
-import com.deployrest.rest_prova.Connessione_Sql;
+
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -12,6 +13,7 @@ import com.deployrest.rest_prova.model.CloudVendor;
 
 
 import java.sql.DriverManager;
+import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.io.BufferedReader;
@@ -27,19 +29,23 @@ import java.sql.Connection;
 import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.Base64;
-
+import javax.sql.DataSource;
 
 @RestController
 @RequestMapping("/cloudvendor")
 
 public class CloudAPIService {
 	
+	
+	@Autowired
+    private DataSource dataSource;
+	
 	@PostMapping("/login")
 	public String login(@RequestBody CloudVendor cloudvendor  ) 
 	{
-		Connection con = Connessione_Sql.ottieniConnessione();
+		
 		String allo = ""; 
-			try {
+			try (Connection con = dataSource.getConnection()) {
 				
 				String email = cloudvendor.getEmail();
 				String password = cloudvendor.getPassword();
@@ -63,7 +69,6 @@ public class CloudAPIService {
 	            	System.out.println(password);
 	            }
 				pstmt.close();
-				con.close();
 			}
 			catch (Exception e) {
 			System.out.println("Connection error" + e);
@@ -73,9 +78,8 @@ public class CloudAPIService {
 	}
 	@PostMapping("/registrazione")
 	public String Registrazione(@RequestBody CloudVendor cloudVendor) {
-		Connection con = Connessione_Sql.ottieniConnessione();
 		String allo = cloudVendor.getNome();
-				try {
+				try (Connection con = dataSource.getConnection()){
 					
 				String nome = cloudVendor.getNome();
 				String cognome = cloudVendor.getCognome();
@@ -113,7 +117,6 @@ public class CloudAPIService {
 	            pstmt.executeUpdate();
 
 	            pstmt.close();
-				con.close();
 			}
 			catch (Exception e) {
 			System.out.println("Connection error" + e);
@@ -125,9 +128,8 @@ public class CloudAPIService {
 	
 	@PostMapping("/delete")
 	public String Eliminazione(@RequestBody CloudVendor Cloudvendor) {
-		Connection con = Connessione_Sql.ottieniConnessione();
 		String allo = ""; 
-			try {
+			try (Connection con = dataSource.getConnection()){
 				
 				String email = Cloudvendor.getEmail();
 				String password = Cloudvendor.getPassword();
@@ -142,7 +144,6 @@ public class CloudAPIService {
 	            pstmt.executeUpdate();
 				
 	            pstmt.close();
-				con.close();
 			}
 			catch (Exception e) {
 			System.out.println("Connection error" + e);
@@ -152,69 +153,56 @@ public class CloudAPIService {
 	}
 	
 	@PostMapping("/inviocsv")
-	public String Filecsv(@RequestParam("file") MultipartFile csv) {
-		Connection con = Connessione_Sql.ottieniConnessione();
-		String line = "";
-		int i = 0;
-			try {
-				
-				
-				BufferedReader br = new BufferedReader(new InputStreamReader(csv.getInputStream()));
-				
-				while((line = br.readLine()) != null){
-					String[] values = line.split(",");
-					
-					String nome = values[0];
-					String cognome = values[1];
-					String email = values[2];
-					String password = values[3];
-					
-					URL url = new URL("https://cataas.com/cat");
-					HttpURLConnection connection = (HttpURLConnection) url.openConnection();
-					connection.setRequestMethod("GET");
-					
-					InputStream inputStream = connection.getInputStream();
-					
-					ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-	                byte[] buffer = new byte[1024];
-	                int bytesRead;
-	                
-	                while ((bytesRead = inputStream.read(buffer)) != -1) {
-	                    outputStream.write(buffer, 0, bytesRead);
-	                }
-	                
-	                byte[] immagineInByte = outputStream.toByteArray();
-	                
-					String b64 = Base64.getEncoder().encodeToString(immagineInByte);
+    public String Filecsv(@RequestParam("file") MultipartFile csv) {
+        int i = 0;
+        try (Connection con = dataSource.getConnection()) {
 
-					
-					
-					String query = "INSERT INTO utenti (nome , cognome  , email  , password, immagini ) values ( ? , ? , ? , ?, ?)";
-					
-					java.sql.PreparedStatement pstmt = con.prepareStatement(query);
-					
-					pstmt.setString(1, nome); 
-					pstmt.setString(2, cognome);
-					pstmt.setString(3, email);
-		            pstmt.setString(4, password);
-		            pstmt.setString(5, b64);
-		            
-		            pstmt.executeUpdate();
-		            pstmt.close();
-					i+=1;
-				}
-				
-				con.close();
-				
-				
-			}
-			catch (Exception e) {
-			System.out.println("Connection error" + e);
-		}
-		return "Utente aggiunti con successo: " + i ;
-		
-	}
-	
+            BufferedReader br = new BufferedReader(new InputStreamReader(csv.getInputStream()));
+            String line;
+            String query = "INSERT INTO utenti (nome , cognome  , email  , password, immagini ) values ( ? , ? , ? , ?, ?)";
 
+            // OTTIMIZZAZIONE: Prepariamo la query UNA volta sola fuori dal ciclo
+            try (PreparedStatement pstmt = con.prepareStatement(query)) {
+                
+                while ((line = br.readLine()) != null) {
+                    String[] values = line.split(",");
+
+                    String nome = values[0];
+                    String cognome = values[1];
+                    String email = values[2];
+                    String password = values[3];
+
+                    // Scarica immagine gatto
+                    URL url = new URL("https://cataas.com/cat");
+                    HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+                    connection.setRequestMethod("GET");
+                    InputStream inputStream = connection.getInputStream();
+                    ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+                    byte[] buffer = new byte[1024];
+                    int bytesRead;
+                    while ((bytesRead = inputStream.read(buffer)) != -1) {
+                        outputStream.write(buffer, 0, bytesRead);
+                    }
+                    byte[] immagineInByte = outputStream.toByteArray();
+                    String b64 = Base64.getEncoder().encodeToString(immagineInByte);
+
+                    // Imposta i parametri e riesegue la query preparata
+                    pstmt.setString(1, nome);
+                    pstmt.setString(2, cognome);
+                    pstmt.setString(3, email);
+                    pstmt.setString(4, password);
+                    pstmt.setString(5, b64);
+
+                    pstmt.executeUpdate();
+                    i += 1;
+                }
+            } // Qui si chiude il PreparedStatement
+
+        } catch (Exception e) {
+            System.out.println("Connection error: " + e);
+            e.printStackTrace();
+        }
+        return "Utenti aggiunti con successo: " + i;
+    }
 }
 
