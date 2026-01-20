@@ -6,7 +6,7 @@ import java.sql.SQLException;
 
 public class Connessione_Sql {
 
-    private static final String URL = "jdbc:mysql://localhost:3306/rubrica";
+    private static final String URL = "jdbc:mysql://host.docker.internal:3306/rubrica";
     private static final String USER = "root";
     private static final String PASS = "1234";
 

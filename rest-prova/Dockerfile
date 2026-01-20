@@ -1,6 +1,10 @@
 # 1. Parti da una base con Java già installato (es. Java 17)
+<<<<<<< HEAD:rest-prova/DockerFile
 FROM openjdk:21
 
+=======
+FROM eclipse-temurin:21-jdk-alpine
+>>>>>>> 34bec571917a3616558e442a1c4edfb784b9a3a2:rest-prova/Dockerfile
 # 2. Crea una cartella di lavoro dentro il container
 WORKDIR /app
 
